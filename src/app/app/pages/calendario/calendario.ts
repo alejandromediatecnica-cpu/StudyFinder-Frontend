@@ -1,7 +1,8 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { StudyDataService, CalendarEvent } from '../../../services/study-data.service';
+import { CalendarEvent } from '../../../services/study-data.service';
+import { TaskStoreService } from '../../../services/task-store.service';
 import { StyledSelectComponent } from '../../components/styled-select';
 
 @Component({
@@ -16,10 +17,13 @@ export class CalendarioComponent implements OnInit {
   selectedDay = new Date();
   calendarDays: Date[] = [];
 
+  private readonly store = inject(TaskStoreService);
+
   // Estado asincrono -> signals (sin zone.js).
-  events = signal<CalendarEvent[]>([]);
+  readonly events = this.store.events;
   showForm = signal(false);
   formError = signal('');
+  editingId: string | null = null;
 
   formTitle = '';
   formDescription = '';
@@ -65,15 +69,13 @@ export class CalendarioComponent implements OnInit {
     return { value: `${hora}:${resto}`, label: `${hora}:${resto}` };
   });
 
-  constructor(private studyData: StudyDataService) {}
-
   ngOnInit(): void {
     this.generateCalendar();
-    this.cargar();
+    this.store.ensureLoaded();
   }
 
   cargar(): void {
-    this.events.set(this.studyData.getEvents());
+    this.store.refresh();
   }
 
   get currentMonthName(): string {
@@ -142,11 +144,26 @@ export class CalendarioComponent implements OnInit {
     this.formType = 'evento';
     this.formHour = '';
     this.formError.set('');
+    this.editingId = null;
+    this.showForm.set(true);
+  }
+
+  /** Carga un evento existente en el formulario para editarlo sin recrearlo. */
+  editar(event: CalendarEvent, domEvent?: Event): void {
+    domEvent?.stopPropagation();
+    this.editingId = event.id;
+    this.formTitle = event.title;
+    this.formDescription = event.description || '';
+    this.formType = (event.type as 'evento' | 'tarea' | 'trabajo') || 'evento';
+    this.formHour = event.hour || '';
+    this.selectedDay = event.date ? new Date(`${event.date}T00:00`) : this.selectedDay;
+    this.formError.set('');
     this.showForm.set(true);
   }
 
   cerrarFormulario(): void {
     this.showForm.set(false);
+    this.editingId = null;
   }
 
   guardar(): void {
@@ -156,24 +173,28 @@ export class CalendarioComponent implements OnInit {
       return;
     }
 
-    this.studyData.addEvent({
+    const cambios = {
       title,
       description: this.formDescription.trim() || undefined,
       date: this.iso(this.selectedDay),
       hour: this.formHour || undefined,
       color: this.formType === 'trabajo' ? 'homework' : this.formType === 'tarea' ? 'task' : 'event',
       type: this.formType
-    });
+    } as const;
 
-    this.cargar();
+    if (this.editingId) {
+      this.store.updateEvent(this.editingId, cambios);
+    } else {
+      this.store.createEvent(cambios);
+    }
+
     this.cerrarFormulario();
   }
 
   eliminar(event: CalendarEvent, domEvent?: Event): void {
     domEvent?.stopPropagation();
     if (typeof window !== 'undefined' && !window.confirm(`¿Eliminar “${event.title}”?`)) return;
-    this.studyData.removeEvent(event.id);
-    this.cargar();
+    this.store.removeEvent(event.id);
   }
 
   private generateCalendar(): void {

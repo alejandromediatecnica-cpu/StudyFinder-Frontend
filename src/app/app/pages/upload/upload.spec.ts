@@ -27,7 +27,9 @@ describe('UploadComponent', () => {
     component = fixture.componentInstance;
     http = TestBed.inject(HttpTestingController);
     studyData = TestBed.inject(StudyDataService);
-    await fixture.whenStable();
+    // ngOnInit (disparado por detectChanges) consulta el espacio libre de la cuota.
+    fixture.detectChanges();
+    http.expectOne(`${API}/storage`).flush({ used: 0, limit: 3145728, available: 3145728, documentCount: 0, percent: 0 });
     fixture.detectChanges();
   });
 
@@ -76,6 +78,8 @@ describe('UploadComponent', () => {
     const req = http.expectOne(API);
     expect(req.request.method).toBe('POST');
     req.flush({ id: 'd1', filename: 'apuntes.pdf' });
+    // Tras subir, se vuelve a consultar el espacio libre.
+    http.expectOne(`${API}/storage`).flush({ used: 10, limit: 3145728, available: 3145718, documentCount: 1, percent: 0 });
 
     expect(component.message()).toBe('apuntes.pdf se guardó en tu biblioteca.');
     expect(component.error()).toBe('');
@@ -89,6 +93,7 @@ describe('UploadComponent', () => {
     elegirArchivo('apuntes.pdf');
     component.upload();
     http.expectOne(API).flush({ id: 'd1', filename: 'apuntes.pdf' });
+    http.expectOne(`${API}/storage`).flush({ used: 10, limit: 3145728, available: 3145718, documentCount: 1, percent: 0 });
 
     const input = inputDelFormulario();
     expect(component.selectedFile).toBeNull();
@@ -119,5 +124,14 @@ describe('UploadComponent', () => {
     component.upload();
     component.upload();
     http.expectOne(API).flush({ id: 'd1', filename: 'apuntes.pdf' });
+    http.expectOne(`${API}/storage`).flush({ used: 10, limit: 3145728, available: 3145718, documentCount: 1, percent: 0 });
+  });
+
+  it('rechaza un archivo que supera el espacio libre disponible', () => {
+    // Cuota casi llena: solo quedan 1 KB libres.
+    component.available.set(1024);
+    elegirArchivo('grande.pdf', 'x'.repeat(2048));
+    expect(component.selectedFile).toBeNull();
+    expect(component.error()).toMatch(/espacio disponible/i);
   });
 });

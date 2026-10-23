@@ -1,10 +1,13 @@
-import { Component, OnInit, OnDestroy, HostListener, ViewChild, ElementRef, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener, ViewChild, ElementRef, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { SearchService } from '../../../services/search.service';
 import { AuthService, AuthUser } from '../../../services/auth.service';
 import { StudyDataService } from '../../../services/study-data.service';
+import { ProfileService } from '../../../services/profile.service';
+import { RealtimeService } from '../../../services/realtime.service';
+import { TranslationService } from '../../../services/translation.service';
 import { Subject, of } from 'rxjs';
 import { catchError, debounceTime, switchMap, takeUntil } from 'rxjs/operators';
 
@@ -18,6 +21,10 @@ import { catchError, debounceTime, switchMap, takeUntil } from 'rxjs/operators';
 export class LayoutComponent implements OnInit, OnDestroy {
   @ViewChild('searchContainer') searchContainer!: ElementRef;
 
+  private readonly profileService = inject(ProfileService);
+  private readonly realtime = inject(RealtimeService);
+  readonly t = inject(TranslationService);
+
   searchQuery: string = '';
   // Estados asincronos: deben ser signals porque la app corre sin zone.js.
   searching = signal(false);
@@ -25,6 +32,7 @@ export class LayoutComponent implements OnInit, OnDestroy {
   error = signal<string | null>(null);
   searchResults = signal<any[]>([]);
   user: AuthUser | null = null;
+  avatarUrl = signal<string | null>(null);
   profileMenuOpen = false;
 
   private searchSubject = new Subject<string>();
@@ -39,6 +47,30 @@ export class LayoutComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.user = this.authService.getUser();
+    this.realtime.connect();
+    if (this.user) {
+      this.profileService.getMe().subscribe({
+        next: (perfil) => {
+          if (perfil.hasAvatar) {
+            this.avatarUrl.set(`${this.profileService.avatarUrl(perfil.id)}?t=${Date.now()}`);
+          }
+          this.t.setLanguage(perfil.language);
+        }
+      });
+    }
+    // El avatar se refresca en vivo cuando cambia desde otra pestaña o vista.
+    this.realtime.events$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(event => {
+        if (event.entity === 'profile') {
+          const perfil = event.data as { hasAvatar?: boolean; id?: string } | null;
+          if (perfil?.hasAvatar && perfil.id) {
+            this.avatarUrl.set(`${this.profileService.avatarUrl(perfil.id)}?t=${Date.now()}`);
+          } else {
+            this.avatarUrl.set(null);
+          }
+        }
+      });
     this.searchSubject.pipe(
       debounceTime(250),
       switchMap(term => {
@@ -111,6 +143,7 @@ export class LayoutComponent implements OnInit, OnDestroy {
   }
 
   logout(): void {
+    this.realtime.disconnect();
     this.authService.logout();
     this.router.navigate(['/']);
   }

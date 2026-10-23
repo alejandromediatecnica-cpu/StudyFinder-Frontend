@@ -54,6 +54,13 @@ export class DocumentService {
     return this.http.delete<void>(`${this.apiUrl}/${encodeURIComponent(id)}/materias`, { headers: this.headers(), params });
   }
 
+  storage(): Observable<{ used: number; limit: number; available: number; documentCount: number; percent: number }> {
+    return this.http.get<{ used: number; limit: number; available: number; documentCount: number; percent: number }>(
+      `${this.apiUrl}/storage`,
+      { headers: this.headers() }
+    ).pipe(timeout(10000));
+  }
+
   delete(id: string): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${encodeURIComponent(id)}`, { headers: this.headers() });
   }

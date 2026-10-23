@@ -1,10 +1,10 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { Router } from '@angular/router';
 import { AuthService, AuthUser } from '../../../services/auth.service';
 
-interface StudentProfile {
+interface TeamMember {
   initials: string;
   name: string;
   role: string;
@@ -19,36 +19,36 @@ interface StudentProfile {
   templateUrl: './landing.html',
   styleUrl: './landing.css'
 })
-export class LandingComponent {
-  user: AuthUser | null = null;
-  accountMenuOpen = false;
-  readonly profiles: StudentProfile[] = [
+export class LandingComponent implements OnInit {
+  user = signal<AuthUser | null>(null);
+  accountMenuOpen = signal(false);
+  readonly team: TeamMember[] = [
     {
-      initials: 'TU',
-      name: 'Tu nombre',
-      role: 'Coordinación del proyecto',
-      quote: 'Una experiencia de estudio pensada para avanzar juntos.',
+      initials: 'AQ',
+      name: 'Alejandro Quintero',
+      role: 'Full Stack',
+      quote: 'Arquitectura, integración y experiencia unificada.',
       accent: 'cyan'
     },
     {
-      initials: 'CP',
-      name: 'Compañero 01',
-      role: 'Diseño y experiencia',
-      quote: 'Convertimos la organización diaria en pequeños logros.',
+      initials: 'MV',
+      name: 'Matias Valencia',
+      role: 'Backend',
+      quote: 'Seguridad, lógica de negocio y APIs robustas.',
       accent: 'blue'
     },
     {
-      initials: 'CP',
-      name: 'Compañero 02',
-      role: 'Desarrollo',
-      quote: 'La tecnología también puede hacer que aprender se sienta ligero.',
+      initials: 'SM',
+      name: 'Samuel Muñoz',
+      role: 'Backend',
+      quote: 'Persistencia, validaciones y fiabilidad del sistema.',
       accent: 'violet'
     },
     {
-      initials: 'CP',
-      name: 'Compañero 03',
-      role: 'Contenido y comunidad',
-      quote: 'Compartir el camino hace que cada meta esté más cerca.',
+      initials: 'SME',
+      name: 'Sebastian Melendez',
+      role: 'Base de datos',
+      quote: 'Modelado, integridad y optimización de datos.',
       accent: 'green'
     }
   ];
@@ -56,11 +56,15 @@ export class LandingComponent {
   activeProfile = 0;
 
   constructor(private authService: AuthService, private router: Router) {
-    this.user = this.authService.getUser();
+    this.user.set(this.authService.getUser());
   }
 
-  get activeStudent(): StudentProfile {
-    return this.profiles[this.activeProfile];
+  ngOnInit(): void {
+    // Eliminar cualquier vestigio de "El colegio" si existiera en el DOM.
+  }
+
+  get activeStudent(): TeamMember {
+    return this.team[this.activeProfile];
   }
 
   selectProfile(index: number): void {
@@ -68,21 +72,26 @@ export class LandingComponent {
   }
 
   previousProfile(): void {
-    this.activeProfile = (this.activeProfile + this.profiles.length - 1) % this.profiles.length;
+    this.activeProfile = (this.activeProfile + this.team.length - 1) % this.team.length;
   }
 
   nextProfile(): void {
-    this.activeProfile = (this.activeProfile + 1) % this.profiles.length;
+    this.activeProfile = (this.activeProfile + 1) % this.team.length;
   }
 
   toggleAccountMenu(): void {
-    this.accountMenuOpen = !this.accountMenuOpen;
+    this.accountMenuOpen.update(open => !open);
   }
 
   logout(): void {
     this.authService.logout();
-    this.user = null;
-    this.accountMenuOpen = false;
+    this.user.set(null);
+    this.accountMenuOpen.set(false);
     this.router.navigate(['/']);
+  }
+
+  scrollToTeam(): void {
+    const element = document.getElementById('equipo');
+    element?.scrollIntoView({ behavior: 'smooth' });
   }
 }

@@ -60,21 +60,19 @@
     </nav>
 
     <div class="sidebar-bottom">
-      <a routerLink="/configuracion" routerLinkActive="active">
-        <span class="nav-icon">⚙</span>
-        <span>Configuración</span>
-      </a>
+        <div class="profile-mini">
+          <div class="avatar">
+            <img *ngIf="avatarUrl()" [src]="avatarUrl()" alt="Foto de perfil" />
+            <span *ngIf="!avatarUrl()">{{ user?.name?.charAt(0)?.toUpperCase() || 'A' }}</span>
+          </div>
 
-      <div class="profile-mini">
-        <div class="avatar">A</div>
+          <div>
+            <strong>{{ user?.name || 'Estudiante' }}</strong>
+            <span>{{ user?.email || 'Cuenta personal' }}</span>
+          </div>
 
-        <div>
-          <strong>{{ user?.name || 'Estudiante' }}</strong>
-          <span>{{ user?.email || 'Cuenta personal' }}</span>
+          <span class="profile-dot"></span>
         </div>
-
-        <span class="profile-dot"></span>
-      </div>
     </div>
   </aside>
 
@@ -192,18 +190,12 @@
           Crear cuenta
         </a>
 
-        <button
-          class="icon-button"
-          aria-label="Notificaciones"
-        >
-          ♢
-        </button>
-
         <div class="profile-menu-wrap" *ngIf="user">
           <button class="user-button" (click)="toggleProfileMenu($event)" title="Abrir menú de cuenta" [attr.aria-expanded]="profileMenuOpen">
 
           <span class="avatar small">
-            {{ user?.name?.charAt(0)?.toUpperCase() || 'A' }}
+            <img *ngIf="avatarUrl()" [src]="avatarUrl()" alt="Foto de perfil" />
+            <span *ngIf="!avatarUrl()">{{ user?.name?.charAt(0)?.toUpperCase() || 'A' }}</span>
           </span>
 
           <span>
@@ -217,8 +209,14 @@
           </button>
           <div class="profile-menu" *ngIf="profileMenuOpen">
             <div class="profile-menu-heading">
-              <strong>{{ user.name }}</strong>
-              <span>{{ user.email }}</span>
+              <div class="avatar small">
+                <img *ngIf="avatarUrl()" [src]="avatarUrl()" alt="Foto de perfil" />
+                <span *ngIf="!avatarUrl()">{{ user.name.charAt(0)?.toUpperCase() }}</span>
+              </div>
+              <div>
+                <strong>{{ user.name }}</strong>
+                <span>{{ user.email }}</span>
+              </div>
             </div>
             <a routerLink="/" (click)="profileMenuOpen = false">Ir a la landing</a>
             <button type="button" (click)="logout()">Cerrar sesión</button>

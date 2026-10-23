@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, tap, timeout } from 'rxjs';
 import { apiEndpoint } from '../config/runtime-config';
 
@@ -66,6 +66,29 @@ export class AuthService {
         headers: { Authorization: `Bearer ${token}` }
       }).subscribe({ error: () => undefined });
     }
+  }
+
+  verifyCurrentPassword(email: string, password: string): Observable<{ verification_token: string; expires_in: number }> {
+    const token = this.getToken();
+    const headers = token ? new HttpHeaders({ Authorization: `Bearer ${token}` }) : new HttpHeaders();
+    return this.http.post<{ verification_token: string; expires_in: number }>(
+      `${this.apiUrl}/password/verify`,
+      { email, password },
+      { headers }
+    ).pipe(timeout(10000));
+  }
+
+  changePassword(verification_token: string, new_password: string, confirm_password: string): Observable<AuthResponse> {
+    const token = this.getToken();
+    const headers = token ? new HttpHeaders({ Authorization: `Bearer ${token}` }) : new HttpHeaders();
+    return this.http.post<AuthResponse>(
+      `${this.apiUrl}/password/change`,
+      { verification_token, new_password, confirm_password },
+      { headers }
+    ).pipe(
+      timeout(10000),
+      tap(response => this.storeSession(response))
+    );
   }
 
   private storeSession(response: AuthResponse): void {

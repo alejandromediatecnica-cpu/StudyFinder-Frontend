@@ -1,7 +1,10 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, OnDestroy, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subject } from 'rxjs';
+import { filter, takeUntil } from 'rxjs/operators';
 import { MessagesService } from '../../../services/messages.service';
+import { RealtimeService } from '../../../services/realtime.service';
 
 @Component({
   standalone: true,
@@ -10,8 +13,10 @@ import { MessagesService } from '../../../services/messages.service';
   templateUrl: './mensajes.html',
   styleUrl: './mensajes.css',
 })
-export class MensajesComponent {
+export class MensajesComponent implements OnDestroy {
   private readonly ms = inject(MessagesService);
+  private readonly realtime = inject(RealtimeService);
+  private readonly destroy$ = new Subject<void>();
 
   // La app es zoneless: el estado que llega en callbacks async debe ser signal
   // para que la plantilla se vuelva a renderizar.
@@ -31,6 +36,25 @@ export class MensajesComponent {
 
   constructor() {
     this.cargar();
+    // Refresco en vivo: nuevos mensajes, solicitudes y contactos llegan por SSE.
+    this.realtime.events$
+      .pipe(
+        filter(event => ['messages', 'contacts'].includes(event.entity)),
+        takeUntil(this.destroy$)
+      )
+      .subscribe(event => {
+        const activo = this.activo();
+        if (event.entity === 'messages' && activo) {
+          // Recarga el hilo abierto con el mensaje recien llegado.
+          this.ms.messages(activo.id).subscribe((r: any) => this.mensajes.set(r));
+        }
+        this.cargar();
+      });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   cargar(): void {

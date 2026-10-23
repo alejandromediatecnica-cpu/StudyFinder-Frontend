@@ -47,7 +47,7 @@ export class SignupComponent {
       return 'No se pudo conectar con el servidor. Verifica que el backend esté activo.';
     }
     if ((error as { name?: string }).name === 'TimeoutError') {
-      return 'El servidor tardo demasiado. Verifica que el backend esté activo.';
+      return 'El servidor tardó demasiado. Verifica que el backend esté activo.';
     }
     return mensajeDeErrorBackend(error) || 'No se pudo crear la cuenta.';
   }

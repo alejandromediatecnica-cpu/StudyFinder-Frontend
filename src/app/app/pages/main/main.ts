@@ -1,7 +1,8 @@
-import { Component, OnInit, computed, signal } from '@angular/core';
+import { Component, OnInit, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../../services/auth.service';
 import { StudyDataService, Task } from '../../../services/study-data.service';
+import { TaskStoreService } from '../../../services/task-store.service';
 
 @Component({
   selector: 'app-main',
@@ -14,8 +15,10 @@ export class MainComponent implements OnInit {
   user;
   stats;
 
+  private readonly store = inject(TaskStoreService);
+
   /** Tareas reales del usuario; es la unica fuente de los dos widgets. */
-  readonly tasks = signal<Task[]>([]);
+  readonly tasks = this.store.tasks;
 
   /**
    * La mas urgente es la pendiente con la fecha mas cercana: primero las
@@ -57,19 +60,18 @@ export class MainComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.cargar();
+    this.store.ensureLoaded();
   }
 
   cargar(): void {
-    this.tasks.set(this.studyData.getTasks());
+    this.store.refresh();
   }
 
   /** Marca la tarea urgente como completada; la siguiente ocupa su lugar. */
   completarUrgente(): void {
     const task = this.urgentTask();
     if (!task) return;
-    this.studyData.toggleTask(task.id);
-    this.cargar();
+    this.store.toggleTask(task.id);
   }
 
   /** Orden de urgencia: vencidas primero, luego por fecha y hora mas proximas. */
@@ -96,8 +98,7 @@ export class MainComponent implements OnInit {
   /** Marca cualquier tarea desde la lista de próximas. */
   completar(task: Task, event?: Event): void {
     event?.stopPropagation();
-    this.studyData.toggleTask(task.id);
-    this.cargar();
+    this.store.toggleTask(task.id);
   }
 
   private hoyIso(): string {

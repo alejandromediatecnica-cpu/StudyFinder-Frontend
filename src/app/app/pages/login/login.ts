@@ -46,8 +46,12 @@ export class LoginComponent {
       return 'No se pudo conectar con el servidor. Verifica que el backend esté activo.';
     }
     if ((error as { name?: string }).name === 'TimeoutError') {
-      return 'El servidor tardo demasiado. Verifica que el backend esté activo.';
+      return 'El servidor tardó demasiado. Verifica que el backend esté activo.';
     }
-    return mensajeDeErrorBackend(error) || 'No se pudo iniciar sesion.';
+    const mensaje = mensajeDeErrorBackend(error);
+    if (mensaje && mensaje.toLowerCase().includes('correo')) {
+      return 'Correo electrónico o contraseña incorrectos.';
+    }
+    return mensaje || 'No se pudo iniciar sesión.';
   }
 }

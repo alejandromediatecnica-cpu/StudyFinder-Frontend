@@ -343,4 +343,39 @@ afterEach(() => http.verify({ ignoreCancelled: true }));
     expect(component.tipoLabel('tarea')).toBe('Tarea');
     expect(component.tipoLabel(undefined)).toBe('Tarea');
   });
+
+  describe('borrado masivo en dos pasos', () => {
+    it('el primer clic solo pide confirmacion, no borra', () => {
+      sembrar();
+      component.pedirBorrarTodas();
+
+      expect(component.confirmandoBorrado()).toBe(true);
+      expect(component.tasks().length).toBe(3);
+    });
+
+    it('sin tareas no pide confirmacion', () => {
+      component.cargar();
+      component.pedirBorrarTodas();
+      expect(component.confirmandoBorrado()).toBe(false);
+    });
+
+    it('cancelar deja las tareas intactas', () => {
+      sembrar();
+      component.pedirBorrarTodas();
+      component.cancelarBorrarTodas();
+
+      expect(component.confirmandoBorrado()).toBe(false);
+      expect(component.tasks().length).toBe(3);
+    });
+
+    it('el segundo clic borra todas las tareas', () => {
+      sembrar();
+      component.pedirBorrarTodas();
+      component.confirmarBorrarTodas();
+
+      expect(component.confirmandoBorrado()).toBe(false);
+      expect(component.tasks().length).toBe(0);
+      expect(studyData.getTasks().length).toBe(0);
+    });
+  });
 });

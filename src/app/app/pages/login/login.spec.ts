@@ -68,7 +68,7 @@ describe('LoginComponent', () => {
         { status: 401, statusText: 'Unauthorized' },
       );
 
-      expect(component.error()).toBe('Correo o contrasena incorrectos');
+      expect(component.error()).toBe('Correo electrónico o contraseña incorrectos.');
       expect(component.loading()).toBe(false);
       expect(component.success()).toBe(false);
     });
@@ -76,7 +76,7 @@ describe('LoginComponent', () => {
     it('usa un texto generico si el backend no envia detalle', () => {
       rellenar('ada@correo.com', 'mala');
       http.expectOne(`${API}/login`).flush({}, { status: 500, statusText: 'Server Error' });
-      expect(component.error()).toBe('No se pudo iniciar sesion.');
+      expect(component.error()).toBe('No se pudo iniciar sesión.');
     });
 
     it('avisa cuando no se puede contactar con el backend', () => {
@@ -138,7 +138,7 @@ describe('LoginComponent', () => {
       fixture.detectChanges();
       const caja = fixture.nativeElement.querySelector('.form-error') as HTMLElement;
       expect(caja).toBeTruthy();
-      expect(caja.textContent).toContain('Correo o contrasena incorrectos');
+      expect(caja.textContent).toContain('Correo electrónico o contraseña incorrectos.');
     });
 
 it('no muestra el aviso cuando no hay error', () => {

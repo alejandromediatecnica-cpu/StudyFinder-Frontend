@@ -10,7 +10,7 @@
   <label class="upload-zone" [class.uploading]="uploading()">
     <span class="upload-icon">↑</span>
     <strong>{{ selectedFile?.name || 'Selecciona un archivo' }}</strong>
-    <small>PDF, DOC, DOCX, PPT, PPTX, XLS o XLSX · Máximo 25 MB</small>
+    <small>PDF, DOC, DOCX, PPT, PPTX, XLS o XLSX · Máximo {{ formatSize(maxBytes) }}</small>
     <input #fileInput type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx" [disabled]="uploading()" (change)="onFileSelected($event)">
   </label>
   <p class="form-message" *ngIf="message()">{{ message() }}</p>

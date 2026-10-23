@@ -1,8 +1,9 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
-import { StudyDataService, Task, TaskDocument, TaskStatus } from '../../../services/study-data.service';
+import { Task, TaskDocument, TaskStatus } from '../../../services/study-data.service';
+import { TaskStoreService } from '../../../services/task-store.service';
 import { DocumentService, LibraryDocument } from '../../../services/document.service';
 import { SearchService } from '../../../services/search.service';
 import { DatePickerComponent } from '../../components/date-picker';
@@ -26,9 +27,14 @@ interface DocSearchResult {
 export class TareasComponent implements OnInit {
   searchTerm = '';
 
+  private readonly store = inject(TaskStoreService);
+
   // Estado asincrono -> signals (la app corre sin zone.js).
-  tasks = signal<Task[]>([]);
+  readonly tasks = this.store.tasks;
   showForm = signal(false);
+
+  /** Borrado masivo en dos pasos: primer clic pide, segundo confirma. */
+  readonly confirmandoBorrado = signal(false);
 
   // Formulario
   editingId: string | null = null;
@@ -86,17 +92,16 @@ export class TareasComponent implements OnInit {
   });
 
   constructor(
-    private studyData: StudyDataService,
     private documentService: DocumentService,
     private searchService: SearchService
   ) {}
 
   ngOnInit(): void {
-    this.cargar();
+    this.store.ensureLoaded();
   }
 
   cargar(): void {
-    this.tasks.set(this.studyData.getTasks());
+    this.store.refresh();
   }
 
   // ---------------------------------------------------------
@@ -228,26 +233,39 @@ export class TareasComponent implements OnInit {
     } as Omit<Task, 'id' | 'createdAt' | 'updatedAt'>;
 
     if (this.editingId) {
-      this.studyData.updateTask(this.editingId, datos);
+      this.store.updateTask(this.editingId, datos);
     } else {
-      // addTask ya refleja en el calendario las tareas que llevan fecha.
-      this.studyData.addTask(datos);
+      // El store ya refleja en el calendario las tareas que llevan fecha.
+      this.store.createTask(datos);
     }
 
-    this.cargar();
     this.cerrarFormulario();
   }
 
   toggleCompleted(task: Task): void {
-    this.studyData.toggleTask(task.id);
-    this.cargar();
+    this.store.toggleTask(task.id);
   }
 
   eliminar(task: Task, event?: Event): void {
     event?.stopPropagation();
     if (typeof window !== 'undefined' && !window.confirm(`¿Eliminar “${task.title}”?`)) return;
-    this.studyData.removeTask(task.id);
-    this.cargar();
+    this.store.removeTask(task.id);
+  }
+
+  /** Primer clic: pide confirmacion para borrar todas las tareas. */
+  pedirBorrarTodas(): void {
+    if (!this.tasks().length) return;
+    this.confirmandoBorrado.set(true);
+  }
+
+  /** Segundo clic: elimina de una sola vez todas las tareas. */
+  confirmarBorrarTodas(): void {
+    this.store.removeAllTasks();
+    this.confirmandoBorrado.set(false);
+  }
+
+  cancelarBorrarTodas(): void {
+    this.confirmandoBorrado.set(false);
   }
 
   // ---------------------------------------------------------

@@ -23,15 +23,16 @@
 .assigned-tag { color: var(--accent-green); font-size: 10px; font-weight: 700; white-space: nowrap; }
 .document-card.shared { border-color: var(--veil-cyan); }
 .document-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.document-card { display: flex; align-items: center; gap: 14px; min-width: 0; padding: 16px; border: 1px solid var(--border); border-radius: 17px; background: var(--surface); box-shadow: var(--shadow); backdrop-filter: blur(16px); }
+.document-card { display: flex; align-items: center; gap: 14px; min-width: 0; padding: 16px; border: 1px solid var(--border); border-radius: 17px; background: var(--surface); box-shadow: var(--shadow); backdrop-filter: blur(16px); transition: border-color .2s ease, transform .2s ease; }
+.document-card:hover .document-details h2, .document-card:focus-within .document-details h2 { color: #ffffff; }
 .document-icon { display: grid; place-items: center; flex: 0 0 46px; height: 50px; border-radius: 13px; background: var(--veil-blue); color: var(--accent); font-size: 11px; font-weight: 800; }
 .document-details { min-width: 0; flex: 1; }
-.document-details h2 { overflow: hidden; margin: 0 0 6px; color: var(--panel-sunken); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.document-details h2 { overflow: hidden; margin: 0 0 6px; color: #ffffff; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .document-details p { margin: 0; color: var(--text-muted); font-size: 10px; }
 .document-details p span { margin: 0 4px; }
 .card-actions { display: flex; align-items: center; gap: 7px; }
 .card-actions button { padding: 8px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--panel-field); color: var(--text-body); font: inherit; font-size: 10px; cursor: pointer; white-space: nowrap; }
-.card-actions .remove-button { color: var(--accent-red); }
+.card-actions .remove-button { color: #f87171; }
 .card-actions button:disabled { opacity: .55; cursor: wait; }
 .empty-state { display: grid; justify-items: center; gap: 10px; padding: 58px 24px; border: 1px dashed var(--line-accent); border-radius: 20px; background: var(--veil-025); text-align: center; }
 .empty-state.compact { padding: 32px 20px; }

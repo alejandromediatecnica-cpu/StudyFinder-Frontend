@@ -197,16 +197,16 @@ describe('LibraryComponent', () => {
     // Estos casos no usan el catalogo: solo se drena la peticion de ngOnInit.
     beforeEach(() => http.match(() => true));
 
-    it('muestra KB por debajo de 1 MB', () => {
-      expect(component.formatSize(2048)).toBe('2 KB');
+    it('muestra bytes por debajo de 1 KB', () => {
+      expect(component.formatSize(10)).toBe('10 B');
     });
 
-    it('muestra al menos 1 KB para archivos minusculos', () => {
-      expect(component.formatSize(10)).toBe('1 KB');
+    it('muestra KB por debajo de 1 MB', () => {
+      expect(component.formatSize(2048)).toBe('2.0 KB');
     });
 
     it('muestra MB a partir de 1 MB', () => {
-      expect(component.formatSize(1024 * 1024 * 2.5)).toBe('2.5 MB');
+      expect(component.formatSize(1024 * 1024 * 2.5)).toBe('2.50 MB');
     });
   });
 });

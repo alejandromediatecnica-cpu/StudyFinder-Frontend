@@ -35,7 +35,7 @@
 
       @if (showForm()) {
         <div class="event-form">
-          <h3>Nuevo evento</h3>
+          <h3>{{ editingId ? 'Editar evento' : 'Nuevo evento' }}</h3>
           <input [(ngModel)]="formTitle" placeholder="Título del evento" aria-label="Título del evento">
           <textarea [(ngModel)]="formDescription" placeholder="Descripción (opcional)" aria-label="Descripción del evento" rows="2"></textarea>
           <app-styled-select [(ngModel)]="formType" [opciones]="tipoOpciones" placeholder="Evento" label="Tipo de evento" />
@@ -59,6 +59,7 @@
               @if (event.documents?.length) {
                 <p class="timeline-doc">📎 {{ event.documents.length }} documento(s)</p>
               }
+              <button class="edit-event" type="button" (click)="editar(event, $event)" [attr.aria-label]="'Editar ' + event.title">✎</button>
               <button class="delete-event" type="button" (click)="eliminar(event, $event)" [attr.aria-label]="'Eliminar ' + event.title">🗑</button>
             </div>
           </div>

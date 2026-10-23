@@ -2,70 +2,117 @@
   <aside class="sidebar">
     <div class="header">
       <div class="avatar">{{ yo()?.name?.charAt(0)?.toUpperCase() }}</div>
-      <div>
-        <div>{{ yo()?.name }}</div>
+      <div class="header-info">
+        <div class="nombre">{{ yo()?.name }}</div>
         <div class="sub">{{ yo()?.email }}</div>
       </div>
-      <button class="boton-agregar" (click)="abrirAgregar()">+ Agregar</button>
+      <button class="boton-agregar" type="button" (click)="abrirAgregar()">+ Agregar</button>
     </div>
+
     <div class="agregar" *ngIf="mostrarAgregar()">
       <input
         [(ngModel)]="nombreAgregar"
         (keyup.enter)="buscar()"
         placeholder="Nombre del usuario"
+        aria-label="Buscar usuario por nombre"
       />
-      <button (click)="buscar()">Buscar</button>
+      <button type="button" (click)="buscar()">Buscar</button>
     </div>
+
     <div class="resultados" *ngIf="mostrarAgregar()">
       <div class="resultado" *ngFor="let u of resultados()">
-        <div>
+        <div class="avatar mini">{{ u.name.charAt(0).toUpperCase() }}</div>
+        <div class="resultado-info">
           <div class="nombre">{{ u.name }}</div>
           <div class="sub">{{ u.email }}</div>
         </div>
-        <button (click)="enviarSolicitud(u)">Agregar</button>
+        <button type="button" (click)="enviarSolicitud(u)">Agregar</button>
       </div>
       <div class="sin-resultados" *ngIf="busco() && resultados().length === 0">
         Sin resultados
       </div>
     </div>
-    <div class="solicitudes" *ngIf="entrantes().length > 0">
-      <div style="font-weight: 600; margin-bottom: 6px;">Solicitudes recibidas</div>
+
+    <div class="seccion" *ngIf="entrantes().length > 0">
+      <div class="seccion-titulo">Solicitudes recibidas</div>
       <div class="solicitud" *ngFor="let s of entrantes()">
-        <span>{{ s.emisor.name }}</span>
+        <div class="avatar mini">{{ s.emisor.name.charAt(0).toUpperCase() }}</div>
+        <span class="nombre">{{ s.emisor.name }}</span>
         <div class="botones">
-          <button class="aceptar" (click)="aceptar(s.id)">Aceptar</button>
-          <button class="rechazar" (click)="rechazar(s.id)">Rechazar</button>
+          <button class="aceptar" type="button" (click)="aceptar(s.id)">Aceptar</button>
+          <button class="rechazar" type="button" (click)="rechazar(s.id)">Rechazar</button>
         </div>
       </div>
     </div>
-    <div class="solicitudes" *ngIf="salientes().length > 0">
-      <div style="font-weight: 600; margin-bottom: 6px;">Solicitudes enviadas</div>
+
+    <div class="seccion" *ngIf="salientes().length > 0">
+      <div class="seccion-titulo">Solicitudes enviadas</div>
       <div class="solicitud" *ngFor="let s of salientes()">
-        <span>{{ s.receptor.name }}</span>
+        <div class="avatar mini">{{ s.receptor.name.charAt(0).toUpperCase() }}</div>
+        <span class="nombre">{{ s.receptor.name }}</span>
+        <span class="estado">Pendiente</span>
       </div>
     </div>
+
+    <div class="seccion-titulo contactos-titulo">Contactos</div>
     <div class="contactos">
       <div class="item" *ngFor="let c of contactos()" (click)="abrir(c)" [class.activo]="activo()?.id === c.otro.id">
         <div class="avatar">{{ c.otro.name.charAt(0).toUpperCase() }}</div>
-        <div>
+        <div class="item-info">
           <div class="nombre">{{ c.otro.name }}</div>
           <div class="sub">{{ c.otro.email }}</div>
         </div>
       </div>
-    </div>
-  </aside>
-  <main class="chat">
-    <div class="chat-header">{{ activo()?.name }}</div>
-    <div class="mensajes-lista">
-      <div class="msg" *ngFor="let m of mensajes()" [class.mio]="m.emisor_id === yo()?.id" [class.otro]="m.emisor_id !== yo()?.id">
-        <div *ngIf="m.texto">{{ m.texto }}</div>
-        <a *ngIf="m.nombre_archivo" class="adj" [href]="archivoUrl(m.nombre_archivo)" target="_blank" rel="noopener">{{ m.nombre_archivo }}</a>
+      <div class="vacio" *ngIf="contactos().length === 0">
+        Aún no tienes contactos. Usa “Agregar” para buscar personas.
       </div>
     </div>
+  </aside>
+
+  <main class="chat">
+    <div class="chat-header" *ngIf="activo(); else sinChat">
+      <div class="avatar">{{ activo()?.name?.charAt(0)?.toUpperCase() }}</div>
+      <div class="item-info">
+        <div class="nombre">{{ activo()?.name }}</div>
+        <div class="sub">{{ activo()?.email }}</div>
+      </div>
+    </div>
+    <ng-template #sinChat>
+      <div class="chat-header vacio">Selecciona un contacto para conversar</div>
+    </ng-template>
+
+    <div class="mensajes-lista">
+      <div
+        class="msg"
+        *ngFor="let m of mensajes()"
+        [class.mio]="m.emisor_id === yo()?.id"
+        [class.otro]="m.emisor_id !== yo()?.id"
+      >
+        <div class="burbuja">
+          <div *ngIf="m.texto">{{ m.texto }}</div>
+          <a *ngIf="m.nombre_archivo" class="adj" [href]="archivoUrl(m.nombre_archivo)" target="_blank" rel="noopener">
+            📎 {{ m.nombre_archivo }}
+          </a>
+        </div>
+      </div>
+      <div class="vacio" *ngIf="activo() && mensajes().length === 0">
+        Aún no hay mensajes. Escribe el primero.
+      </div>
+    </div>
+
     <div class="input" *ngIf="activo()">
-      <input id="archivo" type="file" (change)="onFile($event)" />
-      <input type="text" [(ngModel)]="texto" (keyup.enter)="enviar()" placeholder="Escribe un mensaje..." />
-      <button (click)="enviar()">Enviar</button>
+      <label class="adjuntar" title="Adjuntar archivo (máx. 3 MB)">
+        📎
+        <input id="archivo" type="file" (change)="onFile($event)" hidden />
+      </label>
+      <input
+        type="text"
+        [(ngModel)]="texto"
+        (keyup.enter)="enviar()"
+        placeholder="Escribe un mensaje..."
+        aria-label="Escribir mensaje"
+      />
+      <button type="button" (click)="enviar()">Enviar</button>
     </div>
   </main>
 </div>

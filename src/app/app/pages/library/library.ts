@@ -1,8 +1,10 @@
-import { Component, OnInit, computed, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { Subject, takeUntil } from 'rxjs';
 import { DocumentService, LibraryDocument } from '../../../services/document.service';
+import { RealtimeService, RealtimeEvent } from '../../../services/realtime.service';
 import { StudyDataService } from '../../../services/study-data.service';
 
 const MATERIAS_PREDEFINIDAS = [
@@ -22,7 +24,7 @@ const MAX_STORAGE_PER_USER = 3 * 1024 * 1024;
   templateUrl: './library.html',
   styleUrl: './library.css'
 })
-export class LibraryComponent implements OnInit {
+export class LibraryComponent implements OnInit, OnDestroy {
   // Todo estado que cambia dentro de subscribe (asincrono) debe ser signal:
   // la app corre sin zone.js y, si no, el DOM no se re-renderiza.
   documentos = signal<LibraryDocument[]>([]);
@@ -55,10 +57,26 @@ export class LibraryComponent implements OnInit {
 
   constructor(private documentService: DocumentService, private studyData: StudyDataService) {}
 
+  private readonly destroy$ = new Subject<void>();
+  private readonly realtime = inject(RealtimeService);
+
   ngOnInit(): void {
     this.cargarMaterias();
     this.refresh();
     this.refreshPublic();
+    this.realtime.events$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((event: RealtimeEvent) => {
+        if (event.entity === 'documents') {
+          this.refresh();
+          this.refreshPublic();
+        }
+      });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   private cargarMaterias(): void {
@@ -155,8 +173,9 @@ export class LibraryComponent implements OnInit {
   }
 
   formatSize(bytes: number): string {
-    if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   }
 
   formatDate(value: string): string {

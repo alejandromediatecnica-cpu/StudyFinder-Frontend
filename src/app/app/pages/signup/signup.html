@@ -13,7 +13,7 @@
       <input id="signup-email" name="email" type="email" [(ngModel)]="email" placeholder="tu@correo.com" required>
 
       <label for="signup-password">Contraseña</label>
-      <input id="signup-password" name="password" type="password" [(ngModel)]="password" placeholder="Crea una contraseña" minlength="6" required>
+      <input id="signup-password" name="password" type="password" [(ngModel)]="password" placeholder="Mínimo 12 caracteres con mayúsculas, minúsculas y números" minlength="12" required>
 
       <div class="form-error" role="alert" *ngIf="error()">
         <span class="form-error-icon">!</span>

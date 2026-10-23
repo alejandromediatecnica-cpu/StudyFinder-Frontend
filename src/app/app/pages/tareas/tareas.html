@@ -5,7 +5,20 @@
       <h1>Mis tareas</h1>
       <p>Un vistazo rápido a lo que tienes pendiente.</p>
     </div>
-    <button class="primary-button" type="button" (click)="abrirFormulario()">＋ Nueva tarea</button>
+    <div class="header-actions">
+      @if (!confirmandoBorrado()) {
+        <button class="danger-button" type="button" (click)="pedirBorrarTodas()" [disabled]="!totalCount">
+          Eliminar todas
+        </button>
+      } @else {
+        <span class="confirm-inline">
+          <span class="confirm-text">¿Eliminar todas las tareas?</span>
+          <button class="danger-button" type="button" (click)="confirmarBorrarTodas()">Sí, eliminar</button>
+          <button class="ghost-button" type="button" (click)="cancelarBorrarTodas()">Cancelar</button>
+        </span>
+      }
+      <button class="primary-button" type="button" (click)="abrirFormulario()">＋ Nueva tarea</button>
+    </div>
   </header>
 
   <div class="task-search">

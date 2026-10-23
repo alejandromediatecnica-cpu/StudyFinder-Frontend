@@ -6,20 +6,20 @@
     </a>
 
     <nav class="nav-links" aria-label="Navegación principal">
-      <a href="#colegio">El colegio</a>
-      <a href="#equipo">Nuestro equipo</a>
+      <button type="button" (click)="scrollToTeam()">Conoce al equipo</button>
+      <a href="#equipo">Equipo</a>
     </nav>
 
     <div class="nav-actions">
-      <ng-container *ngIf="!user; else landingAccount">
-        <a class="login-link" [routerLink]="user ? '/main' : '/login'">Entrar</a>
-        <a class="signup-button" [routerLink]="user ? '/main' : '/signup'">Crear cuenta <span>↗</span></a>
+      <ng-container *ngIf="!user(); else landingAccount">
+        <a class="login-link" [routerLink]="user() ? '/main' : '/login'">Entrar</a>
+        <a class="signup-button" [routerLink]="user() ? '/main' : '/signup'">Crear cuenta <span>↗</span></a>
       </ng-container>
       <ng-template #landingAccount>
         <div class="landing-account">
-          <button class="account-button" type="button" (click)="toggleAccountMenu()"><span class="landing-avatar">{{ user?.name?.charAt(0)?.toUpperCase() }}</span><span>{{ user?.name }}</span><span>⌄</span></button>
-          <div class="landing-account-menu" *ngIf="accountMenuOpen">
-            <a routerLink="/main" (click)="accountMenuOpen = false">Ir al workspace</a>
+          <button class="account-button" type="button" (click)="toggleAccountMenu()"><span class="landing-avatar">{{ user()?.name?.charAt(0)?.toUpperCase() }}</span><span>{{ user()?.name }}</span><span>⌄</span></button>
+          <div class="landing-account-menu" *ngIf="accountMenuOpen()">
+            <a routerLink="/main" (click)="accountMenuOpen.set(false)">Ir al workspace</a>
             <button type="button" (click)="logout()">Cerrar sesión</button>
           </div>
         </div>
@@ -34,10 +34,10 @@
         <h1>Tu camino académico, <em>más claro.</em></h1>
         <p class="hero-description">StudyFinder reúne tus materias, tareas y metas en un espacio creado para que estudies con intención y avances a tu propio ritmo.</p>
         <div class="hero-actions">
-          <a class="primary-button" [routerLink]="user ? '/main' : '/signup'">Comenzar ahora <span>→</span></a>
-          <a class="text-button" href="#colegio">Conoce StudyFinder <span>↓</span></a>
+          <a class="primary-button" [routerLink]="user() ? '/main' : '/signup'">Comenzar ahora <span>→</span></a>
+          <button type="button" class="text-button" (click)="scrollToTeam()">Conoce StudyFinder <span>↓</span></button>
         </div>
-        <div class="hero-proof"><span class="proof-avatars"><i>SF</i><i>+</i><i>4</i></span><span>Un espacio hecho para nuestra comunidad académica</span></div>
+        <div class="hero-proof"><span class="proof-avatars"><i>SF</i><i>+</i><i>4</i></span><span>Un espacio hecho para estudiantes</span></div>
       </div>
 
       <div class="hero-visual" aria-label="Vista previa del espacio de estudio">
@@ -54,20 +54,14 @@
       </div>
     </section>
 
-    <section class="school-section" id="colegio">
-      <div class="section-heading"><p class="eyebrow">NUESTRO PUNTO DE PARTIDA</p><h2>Una comunidad que aprende<br><em>en movimiento.</em></h2></div>
-      <div class="school-content">
-        <div class="school-image"><div class="image-label"><span>01</span><strong>Aprender juntos<br>cambia la perspectiva.</strong></div></div>
-        <div class="school-copy"><p>Este es el espacio digital de nuestro colegio: un lugar para transformar la rutina académica en una experiencia más ordenada, humana y conectada.</p><div class="school-stat"><strong>01</strong><span>Una comunidad<br>un mismo propósito</span></div><div class="school-stat"><strong>24/7</strong><span>Tu progreso<br>siempre contigo</span></div></div>
-      </div>
-    </section>
+
 
     <section class="team-section" id="equipo">
       <div class="section-heading team-heading"><div><p class="eyebrow">LAS PERSONAS DETRÁS</p><h2>Hecho por estudiantes,<br><em>para estudiantes.</em></h2></div><div class="carousel-controls"><button type="button" aria-label="Persona anterior" (click)="previousProfile()">←</button><button type="button" aria-label="Persona siguiente" (click)="nextProfile()">→</button></div></div>
-      <div class="team-layout">
-        <div class="team-feature" [class]="'accent-' + activeStudent.accent"><div class="feature-avatar">{{ activeStudent.initials }}</div><span class="feature-number">0{{ activeProfile + 1 }} / 04</span><div class="feature-copy"><p>{{ activeStudent.role }}</p><h3>{{ activeStudent.name }}</h3><blockquote>“{{ activeStudent.quote }}”</blockquote></div></div>
-        <div class="profile-list"><button type="button" class="profile-card" *ngFor="let profile of profiles; let index = index" [class.selected]="index === activeProfile" (click)="selectProfile(index)"><span class="mini-avatar" [class]="'accent-' + profile.accent">{{ profile.initials }}</span><span><strong>{{ profile.name }}</strong><small>{{ profile.role }}</small></span><span class="profile-arrow">↗</span></button></div>
-      </div>
+    <div class="team-layout">
+      <div class="team-feature" [class]="'accent-' + activeStudent.accent"><div class="feature-avatar">{{ activeStudent.initials }}</div><span class="feature-number">0{{ activeProfile + 1 }} / 04</span><div class="feature-copy"><p>{{ activeStudent.role }}</p><h3>{{ activeStudent.name }}</h3><blockquote>"{{ activeStudent.quote }}"</blockquote></div></div>
+      <div class="profile-list"><button type="button" class="profile-card" *ngFor="let profile of team; let index = index" [class.selected]="index === activeProfile" (click)="selectProfile(index)"><span class="mini-avatar" [class]="'accent-' + profile.accent">{{ profile.initials }}</span><span><strong>{{ profile.name }}</strong><small>{{ profile.role }}</small></span></button></div>
+    </div>
     </section>
   </main>
 
