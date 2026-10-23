@@ -1,3 +1,9 @@
+/*
+  Estilos de subida de documentos.
+  - .upload-zone: zona clicable que envuelve el <input type="file"> oculto.
+  - .uploading/.upload-button: estados de espera mientras sube.
+  - .form-message/.form-error: resultado de la operación.
+*/
 .upload-page { max-width: 900px; }
 .upload-zone { min-height: 260px; display: grid; place-items: center; align-content: center; gap: 10px; border: 1px dashed var(--accent-bright); border-radius: 18px; background: var(--veil-035); color: var(--text); cursor: pointer; text-align: center; }
 .upload-zone small { color: var(--muted); }

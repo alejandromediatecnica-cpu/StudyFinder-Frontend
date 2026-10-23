@@ -1,3 +1,32 @@
+/**
+ * Tablero de tareas (ruta '/main/tareas').
+ *
+ * Qué hace:
+ *  - Pinta 4 columnas (Hoy / Esta semana / Pendientes / Completadas) a partir de
+ *    `TaskStoreService.tasks` (backend `GET /tasks`).
+ *  - Alta/edición en un panel lateral, con fecha (app-date-picker), hora
+ *    (app-styled-select) y varios documentos adjuntos.
+ *  - Filtro de texto insensible a acentos y borrado masivo en dos pasos.
+ *
+ * INVARIANTES IMPORTANTES
+ *  - El estado de columna NO se guarda: se deriva con `statusActual()` desde
+ *    `completed` + `dueDate`. `Task.status` existe pero no manda.
+ *  - Los documentos adjuntos van en `Task.documents[]` (varios permitidos).
+ *  - Crear/editar/borrar pasa por `TaskStoreService`, que sincroniza el evento
+ *    equivalente en el calendario; la página nunca toca el calendario.
+ *
+ * SIN ZONE.JS: todo lo que llega de un `subscribe` (showForm, docPickerOpen,
+ * loading*, libraryDocuments, searchResults, errorDocuments, confirmandoBorrado)
+ * es signal. Los campos del formulario son normales porque solo los escribe ngModel.
+ *
+ * CÓMO AÑADIR UNA COLUMNA
+ *  - `columns` + `statusActual()` + `filteredTasks()` + el HTML.
+ * CÓMO CAMBIAR LAS MATERIAS DEL DESPLEGABLE
+ *  - `materias` (hoy hardcodeadas; Materias gestiona las del usuario aparte).
+ * CÓMO CAMBIAR EL RANGO DE "ESTA SEMANA"
+ *  - `setDate(+7)` en `statusActual()`.
+ */
+
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -9,6 +38,7 @@ import { SearchService } from '../../../services/search.service';
 import { DatePickerComponent } from '../../components/date-picker';
 import { StyledSelectComponent } from '../../components/styled-select';
 
+/** Resultado de búsqueda académica (OpenAlex) que se puede adjuntar. */
 interface DocSearchResult {
   id?: string;
   title: string;
@@ -25,6 +55,7 @@ interface DocSearchResult {
   styleUrl: './tareas.css',
 })
 export class TareasComponent implements OnInit {
+  /** Texto del filtro de la cabecera. */
   searchTerm = '';
 
   private readonly store = inject(TaskStoreService);
@@ -57,6 +88,7 @@ export class TareasComponent implements OnInit {
   searchResults = signal<DocSearchResult[]>([]);
   errorDocuments = signal('');
 
+  /** Columnas visibles, en orden. */
   readonly columns: Array<{ status: TaskStatus; titulo: string }> = [
     { status: 'today', titulo: 'Hoy' },
     { status: 'week', titulo: 'Esta semana' },
@@ -64,6 +96,7 @@ export class TareasComponent implements OnInit {
     { status: 'done', titulo: 'Completadas' }
   ];
 
+  /** Materias sugeridas en el formulario. */
   readonly materias: string[] = [
     'Ingeniería de Software',
     'Cálculo II',
@@ -73,8 +106,10 @@ export class TareasComponent implements OnInit {
     'Matemáticas'
   ];
 
+  /** Adaptación de `materias` al formato de app-styled-select. */
   readonly materiaOpciones = this.materias.map(materia => ({ value: materia, label: materia }));
 
+  /** Tipos de tarea disponibles. */
   readonly tipoOpciones = [
     { value: 'tarea', label: 'Tarea' },
     { value: 'trabajo', label: 'Trabajo' },
@@ -96,10 +131,12 @@ export class TareasComponent implements OnInit {
     private searchService: SearchService
   ) {}
 
+  /** Carga las tareas si aún no están (idempotente). */
   ngOnInit(): void {
     this.store.ensureLoaded();
   }
 
+  /** Recarga desde el backend. */
   cargar(): void {
     this.store.refresh();
   }
@@ -108,6 +145,7 @@ export class TareasComponent implements OnInit {
   // Agrupacion y filtrado
   // ---------------------------------------------------------
 
+  /** Tareas de una columna, filtradas por el texto (sin acentos). */
   filteredTasks(status: TaskStatus): Task[] {
     const term = this.sinAcentos(this.searchTerm.trim());
     return this.tasks()
@@ -136,7 +174,7 @@ export class TareasComponent implements OnInit {
     if (task.completed) return 'done';
     if (!task.dueDate) return 'pending';
     const hoy = this.hoyISO();
-    if (task.dueDate <= hoy) return 'today';
+    if (task.dueDate <= hoy) return 'today'; // incluye vencidas
     const enUnaSemana = new Date();
     enUnaSemana.setDate(enUnaSemana.getDate() + 7);
     const isoSemana = this.toISO(enUnaSemana);
@@ -147,24 +185,29 @@ export class TareasComponent implements OnInit {
     return this.toISO(new Date());
   }
 
+  /** Fecha local como YYYY-MM-DD. */
   private toISO(date: Date): string {
     const mes = String(date.getMonth() + 1).padStart(2, '0');
     const dia = String(date.getDate()).padStart(2, '0');
     return `${date.getFullYear()}-${mes}-${dia}`;
   }
 
+  /** Número de tareas en una columna (badge de la cabecera). */
   countByStatus(status: TaskStatus): number {
     return this.tasks().filter(task => this.statusActual(task) === status).length;
   }
 
+  /** Total de no completadas. */
   get pendingCount(): number {
     return this.tasks().filter(task => !task.completed).length;
   }
 
+  /** Total de tareas. */
   get totalCount(): number {
     return this.tasks().length;
   }
 
+  /** Limpia el filtro de búsqueda. */
   clearSearch(): void {
     this.searchTerm = '';
   }
@@ -173,16 +216,19 @@ export class TareasComponent implements OnInit {
   // Alta / edicion / borrado
   // ---------------------------------------------------------
 
+  /** Abre el panel con el formulario vacío. */
   abrirFormulario(): void {
     this.resetFormulario();
     this.showForm.set(true);
   }
 
+  /** Cierra el panel y descarta lo escrito. */
   cerrarFormulario(): void {
     this.showForm.set(false);
     this.resetFormulario();
   }
 
+  /** Vuelve el formulario a su estado inicial. */
   private resetFormulario(): void {
     this.editingId = null;
     this.formTitle = '';
@@ -195,6 +241,7 @@ export class TareasComponent implements OnInit {
     this.attachedDocuments = [];
   }
 
+  /** Carga una tarea existente en el formulario (modo edición). */
   editar(task: Task): void {
     this.editingId = task.id;
     this.formTitle = task.title;
@@ -203,11 +250,19 @@ export class TareasComponent implements OnInit {
     this.formDate = task.dueDate || '';
     this.formTime = task.dueTime || '';
     this.formDescription = task.description || '';
+    // Copia: hasta guardar no se modifica la tarea original.
     this.attachedDocuments = [...(task.documents ?? [])];
     this.formError = '';
     this.showForm.set(true);
   }
 
+  /**
+   * Crea o actualiza la tarea.
+   *
+   * `completed` y `status` se conservan al editar (editar el título no debe
+   * desmarcar una tarea hecha). `due` es el texto legible que muestra el
+   * calendario ("MM-DD HH:MM"); `dueDate`/`dueTime` son los datos reales.
+   */
   guardar(): void {
     const title = this.formTitle.trim();
     if (!title) {
@@ -242,10 +297,12 @@ export class TareasComponent implements OnInit {
     this.cerrarFormulario();
   }
 
+  /** Alterna completada/pendiente. */
   toggleCompleted(task: Task): void {
     this.store.toggleTask(task.id);
   }
 
+  /** Borra una tarea (con confirmación del navegador). */
   eliminar(task: Task, event?: Event): void {
     event?.stopPropagation();
     if (typeof window !== 'undefined' && !window.confirm(`¿Eliminar “${task.title}”?`)) return;
@@ -264,6 +321,7 @@ export class TareasComponent implements OnInit {
     this.confirmandoBorrado.set(false);
   }
 
+  /** Cancela el borrado masivo. */
   cancelarBorrarTodas(): void {
     this.confirmandoBorrado.set(false);
   }
@@ -272,6 +330,12 @@ export class TareasComponent implements OnInit {
   // Documentos: biblioteca propia o resultados de la API
   // ---------------------------------------------------------
 
+  /**
+   * Abre el selector de documentos.
+   *
+   * Pestaña "biblioteca": documentos propios + compartidos (`list`+`listPublic`).
+   * Pestaña "búsqueda": OpenAlex (`SearchService`).
+   */
   abrirSelectorDocumento(tab: 'biblioteca' | 'busqueda' = 'biblioteca'): void {
     this.docPickerTab = tab;
     this.docPickerOpen.set(true);
@@ -281,12 +345,14 @@ export class TareasComponent implements OnInit {
     }
   }
 
+  /** Cierra el selector y limpia la búsqueda. */
   cerrarSelectorDocumento(): void {
     this.docPickerOpen.set(false);
     this.docSearchTerm = '';
     this.searchResults.set([]);
   }
 
+  /** Carga en paralelo documentos propios y de otros usuarios. */
   private cargarBiblioteca(): void {
     this.loadingDocuments.set(true);
     // Documentos propios + compartidos por el resto: la biblioteca completa.
@@ -305,6 +371,7 @@ export class TareasComponent implements OnInit {
     });
   }
 
+  /** Busca documentos académicos (OpenAlex) para adjuntar por enlace. */
   buscarDocumentos(): void {
     const term = this.docSearchTerm.trim();
     if (!term) return;
@@ -312,6 +379,7 @@ export class TareasComponent implements OnInit {
     this.errorDocuments.set('');
     this.searchService.searchDocuments(term).subscribe({
       next: (response: any) => {
+        // El backend devuelve {results:[...]}; se tolera un array directo.
         const list = Array.isArray(response) ? response : response?.results || response?.items || [];
         this.searchResults.set(list);
         this.loadingSearch.set(false);
@@ -325,6 +393,7 @@ export class TareasComponent implements OnInit {
 
   /** Adjunta un documento mas; se permiten varios por tarea. */
   adjuntarDocumento(document: LibraryDocument | DocSearchResult, origen: 'biblioteca' | 'busqueda'): void {
+    // Los documentos de biblioteca traen `filename`; los de OpenAlex, `title`.
     const nombre = 'filename' in document ? document.filename : document.title;
     const url = 'url' in document ? document.url || undefined : undefined;
     const adjunto: TaskDocument = { id: document.id, name: nombre, url, origin: origen };
@@ -349,6 +418,7 @@ export class TareasComponent implements OnInit {
     return this.attachedDocuments.some(otro => otro.name === nombre && otro.url === url);
   }
 
+  /** Etiqueta visible del tipo de tarea. */
   tipoLabel(tipo?: string): string {
     if (tipo === 'trabajo') return 'Trabajo';
     if (tipo === 'evento') return 'Evento';

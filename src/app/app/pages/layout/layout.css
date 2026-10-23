@@ -1,3 +1,11 @@
+/*
+  Estilos del shell autenticado.
+  - .dashboard-shell: grid sidebar (250px) + contenido, con fondo fijo.
+  - .sidebar: navegación; .active marca la ruta hija actual (routerLinkActive).
+  - Barra superior: buscador (.search-*), resultados y menú de perfil/avatar.
+  - Contenido: .page-content + <router-outlet> (cada página trae sus estilos).
+  Tokens globales en src/styles.css.
+*/
 :host { display: block; min-height: 100vh; }
 
 .dashboard-shell {

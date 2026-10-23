@@ -1,3 +1,10 @@
+/*
+  Estilos de materias.
+  - .materia-modal-backdrop / .new-materia-form: alta de materia.
+  - .library-picker: modal para añadir documentos desde la Biblioteca.
+  - .materia-*: tarjetas de materia, documentos y vista previa de OpenAlex.
+  El grid principal de tarjetas se define más abajo en este archivo.
+*/
 .materia-modal-backdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 20px; background: var(--shade); backdrop-filter: blur(8px); }
 .new-materia-form { width: min(100%, 430px); display: grid; gap: 10px; padding: 25px; border: 1px solid var(--line-accent); border-radius: 18px; background: var(--panel-overlay); box-shadow: 0 24px 70px var(--shadow-soft); }
 .new-materia-form h2 { margin: 0 0 8px; }

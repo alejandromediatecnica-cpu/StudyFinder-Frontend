@@ -1,3 +1,10 @@
+/*
+  Estilos de la biblioteca.
+  - .storage-bar: cuota usada (relleno calculado con storagePercent()).
+  - .library-toolbar/.library-search: filtro por nombre.
+  - .documents-table / .document-row: listas propias y compartidas.
+  - .danger-button/.ghost-button: acciones de eliminar/asignar.
+*/
 :host { display: block; }
 .library-page { max-width: 1180px; margin: 0 auto; }
 .page-header { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; margin-bottom: 28px; }

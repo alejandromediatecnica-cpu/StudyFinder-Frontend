@@ -1,3 +1,10 @@
+/*
+  Estilos del chat.
+  - .mensajes: grid sidebar (320px) + conversación.
+  - .sidebar: perfil, solicitudes y contactos.
+  - .chat/.messages/.message: hilo y burbujas (propias vs. del otro).
+  - .adjunto/.composer: archivos y caja de envío.
+*/
 :host { display: block; height: 100%; }
 .mensajes { display: grid; grid-template-columns: 320px 1fr; height: calc(100vh - 120px); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; background: var(--surface); }
 .sidebar { display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--surface-soft); }

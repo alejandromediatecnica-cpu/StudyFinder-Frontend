@@ -1,3 +1,29 @@
+/**
+ * Materias (ruta '/main/materias').
+ *
+ * Qué hace:
+ *  - Lista las 6 materias predefinidas + las creadas por el usuario.
+ *  - Al entrar en una materia muestra sus documentos (asociaciones reales en
+ *    Mongo: `materia_documents`), permite añadir desde la Biblioteca, quitarlos
+ *    y descargarlos.
+ *  - Busca documentos académicos (OpenAlex) y permite guardarlos como enlace.
+ *
+ * DOS ALMACENES DISTINTOS
+ *  - Materias propias y documentos guardados por búsqueda: localStorage
+ *    (`StudyDataService.getMateriaChanges`, `addMateria`, `saveDocument`).
+ *  - Documentos subidos y su asociación a materias: backend (`DocumentService`).
+ *
+ * IDs: las predefinidas son 1..6; las propias se derivan como `1000 + índice`
+ * en el array de `StudyDataService`. Borrar una materia propia renumera las
+ * siguientes para no desalinear ese cálculo (ver `eliminarMateria`).
+ *
+ * CÓMO AÑADIR UNA MATERIA PREDEFINIDA
+ *  - Arrays `MATERIAS_PREDEFINIDAS` aquí, en `library.ts` y en `tareas.ts`
+ *    (deben coincidir) + el array inicial de `materias`.
+ * CÓMO QUITAR EL RENUMERADO
+ *  - No lo hagas: rompería los ids de `StudyDataService` (ver comentario abajo).
+ */
+
 import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -6,6 +32,7 @@ import { SearchService } from '../../../services/search.service';
 import { StudyDataService, SavedDocument, CustomMateria } from '../../../services/study-data.service';
 import { DocumentService, LibraryDocument } from '../../../services/document.service';
 
+/** Documento tal como lo muestra la vista local (no se usa para peticiones). */
 interface Documento {
   id: string;
   filename: string;
@@ -14,6 +41,7 @@ interface Documento {
   createdAt: string;
 }
 
+/** Materia con sus documentos (los documentos casi siempre se cargan aparte). */
 interface Materia {
   id: number;
   nombre: string;
@@ -29,6 +57,7 @@ interface Materia {
   styleUrl: './materias.css',
 })
 export class MateriasComponent {
+  /** Lista visible; se amplía en el constructor con las materias propias. */
   materias = signal<Materia[]>([
     { id: 1, nombre: 'Ingeniería de Software', documentos: [] },
     { id: 2, nombre: 'Cálculo II', documentos: [] },
@@ -38,6 +67,7 @@ export class MateriasComponent {
     { id: 6, nombre: 'Matemáticas', documentos: [] },
   ]);
 
+  /** Materia abierta (null = vista de lista). */
   materiaSeleccionada = signal<Materia | null>(null);
   searchTerm = '';
   searchResults: any[] = [];
@@ -56,21 +86,26 @@ export class MateriasComponent {
   errorBiblioteca = '';
 
   constructor(private searchService: SearchService, private studyData: StudyDataService, private documentService: DocumentService) {
+    // Aplica lo guardado en localStorage: quita las predefinidas borradas y
+    // añade las propias con id 1000+índice (contrato con StudyDataService).
     const changes = this.studyData.getMateriaChanges();
     this.materias.update(items => [
       ...items.filter(item => !changes.deletedMateriaIds.includes(item.id)),
       ...changes.customMaterias.map((materia, index) => {
+        // Compatibilidad: versiones antiguas guardaban solo el nombre.
         const custom = typeof materia === 'string' ? { name: materia, description: '' } : materia as CustomMateria;
         return { id: 1000 + index, nombre: custom.name, descripcion: custom.description, documentos: [] };
       })
     ]);
   }
 
+  /** Abre una materia y carga sus documentos desde el backend. */
   seleccionarMateria(materia: Materia) {
     this.materiaSeleccionada.set(materia);
     this.cargarDocumentosDeMateria(materia);
   }
 
+  /** Documentos asociados a la materia (`GET /documents?materia=...`). */
   private cargarDocumentosDeMateria(materia: Materia): void {
     this.documentService.list(materia.nombre).subscribe({
       next: documents => this.documentosDeMateria = documents,
@@ -78,6 +113,7 @@ export class MateriasComponent {
     });
   }
 
+  /** Abre el selector con TODOS los documentos propios (sin filtrar por materia). */
   abrirSelectorBiblioteca(): void {
     this.selectorBibliotecaAbierto = true;
     this.cargandoBiblioteca = true;
@@ -94,10 +130,12 @@ export class MateriasComponent {
     });
   }
 
+  /** ¿El documento ya está asociado a la materia abierta? */
   estaEnMateria(document: LibraryDocument): boolean {
     return this.documentosDeMateria.some(item => item.id === document.id);
   }
 
+  /** Asocia un documento a la materia abierta (POST en `materia_documents`). */
   agregarDesdeBiblioteca(document: LibraryDocument): void {
     const materia = this.materiaSeleccionada();
     if (!materia || this.estaEnMateria(document)) return;
@@ -114,6 +152,7 @@ export class MateriasComponent {
     });
   }
 
+  /** Desasocia el documento (no lo borra de la biblioteca). */
   quitarDeMateria(document: LibraryDocument): void {
     const materia = this.materiaSeleccionada();
     if (!materia) return;
@@ -123,6 +162,12 @@ export class MateriasComponent {
     });
   }
 
+  /**
+   * Descarga un documento como blob y dispara la descarga del navegador.
+   *
+   * Se revoca la object URL en un `setTimeout(0)` (no en el mismo tick) porque
+   * el navegador aún no ha leído el blob cuando `click()` retorna.
+   */
   descargar(document: LibraryDocument): void {
     this.documentService.download(document.id).subscribe({
       next: blob => {
@@ -139,10 +184,12 @@ export class MateriasComponent {
     });
   }
 
+  /** Tamaño legible: KB con mínimo 1, o MB con un decimal. */
   tamanoLegible(bytes: number): string {
     return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
+  /** Crea una materia propia (solo localStorage) con validación de duplicados. */
   crearMateria(): void {
     const nombre = this.newMateriaName.trim();
     if (!nombre) {
@@ -153,6 +200,7 @@ export class MateriasComponent {
       this.materiaError = 'Ya existe una materia con ese nombre.';
       return;
     }
+    // Id = 1000 + posición actual en el almacén (debe coincidir con lo guardado).
     const id = 1000 + this.studyData.getMateriaChanges().customMaterias.length;
     const descripcion = this.newMateriaDescription.trim();
     this.materias.update(items => [...items, { id, nombre, descripcion, documentos: [] }]);
@@ -163,6 +211,7 @@ export class MateriasComponent {
     this.showNewMateria = false;
   }
 
+  /** Vuelve a la lista de materias y limpia paneles/búsqueda. */
   volver() {
     this.materiaSeleccionada.set(null);
     this.previewDocument = null;
@@ -170,6 +219,7 @@ export class MateriasComponent {
     this.selectorBibliotecaAbierto = false;
   }
 
+  /** Busca documentos académicos en OpenAlex y registra la métrica de uso. */
   buscarDocumentos(): void {
     if (!this.searchTerm.trim()) return;
     this.studyData.recordSearch();
@@ -177,6 +227,7 @@ export class MateriasComponent {
     this.searchError = '';
     this.searchService.searchDocuments(this.searchTerm.trim()).subscribe({
       next: (response: any) => {
+        // El backend devuelve {results}; se tolera un array directo.
         this.searchResults = Array.isArray(response) ? response : response?.results || response?.items || [];
         this.searching = false;
         if (!this.searchResults.length) this.searchError = 'No encontramos documentos.';
@@ -188,10 +239,12 @@ export class MateriasComponent {
     });
   }
 
+  /** Muestra el detalle de un resultado de búsqueda. */
   previsualizar(document: any): void {
     this.previewDocument = document;
   }
 
+  /** Guarda un resultado de OpenAlex como enlace dentro de la materia. */
   guardarEnMateria(document: any): void {
     const materia = this.materiaSeleccionada();
     if (!materia) return;
@@ -208,10 +261,12 @@ export class MateriasComponent {
     this.previewDocument = null;
   }
 
+  /** Enlaces guardados (localStorage) de una materia. */
   documentosGuardados(materia: Materia): SavedDocument[] {
     return this.studyData.getSavedDocuments(materia.nombre);
   }
 
+  /** Borra una materia: actualiza la vista, el almacén y renumera los ids. */
   eliminarMateria(materia: Materia, event: MouseEvent): void {
     event.stopPropagation();
     this.materias.update(items => {
@@ -231,6 +286,7 @@ export class MateriasComponent {
     if (this.materiaSeleccionada()?.id === materia.id) this.volver();
   }
 
+  /** Quita un enlace guardado (no toca documentos subidos). */
   eliminarGuardado(documento: SavedDocument, event: MouseEvent): void {
     event.stopPropagation();
     this.studyData.removeSavedDocument(documento.id);

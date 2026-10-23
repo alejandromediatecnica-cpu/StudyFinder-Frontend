@@ -1,3 +1,10 @@
+/*
+  Estilos del tablero de tareas.
+  - .task-search / .task-stats: filtro y contadores.
+  - .task-board/.task-column/.task-card: columnas y tarjetas.
+  - .task-form-panel y .field*: panel de alta/edición.
+  - .document-picker*: selector de documentos (biblioteca / búsqueda).
+*/
 .task-search { display: flex; align-items: center; gap: 9px; max-width: 540px; margin: 0 0 18px; padding: 0 12px; border: 1px solid var(--veil-08); border-radius: 12px; background: var(--veil-045); }
 .task-search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--veil-blue-soft); }
 .task-search span { color: var(--accent); font-size: 18px; }

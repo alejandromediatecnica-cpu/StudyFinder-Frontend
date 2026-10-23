@@ -1,3 +1,10 @@
+<!--
+  Materias: dos vistas en la misma ruta.
+  - Sin selección: lista de materias (predefinidas + propias) y alta.
+  - Con `materiaSeleccionada()`: documentos de la materia, selector de
+    Biblioteca, búsqueda OpenAlex y vista previa.
+  Lógica en materias.ts.
+-->
 <div class="page-shell">
   @if (materiaSeleccionada(); as materia) {
     <header class="page-header">

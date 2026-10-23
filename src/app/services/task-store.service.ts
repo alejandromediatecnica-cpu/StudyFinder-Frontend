@@ -1,3 +1,35 @@
+/**
+ * Fuente de verdad de tareas y eventos para toda la app.
+ *
+ * DOS MODOS
+ *   - Con sesión: el backend (Mongo) manda. Se lee al cargar/refrescar y cada
+ *     mutación hace la petición y actualiza los signals al recibir respuesta.
+ *   - Sin sesión (invitado): se delega en `StudyDataService` (localStorage).
+ *
+ * SINCRONIZACIÓN TAREA <-> EVENTO (invariante central)
+ *   Una tarea con `dueDate` tiene EXACTAMENTE UN evento de calendario vinculado
+ *   por `taskId`; un evento suelto (creado en el calendario) tiene EXACTAMENTE
+ *   UNA tarea. Todas las mutaciones pasan por:
+ *     - `syncEventForTask`    (tarea -> evento)
+ *     - `vincularTareaAEvento`/`reconciliarEventosSinTarea` (evento -> tarea)
+ *   No crees eventos "a mano" en las páginas: romperías el invariante.
+ *
+ * TIEMPO REAL
+ *   Se suscribe a `RealtimeService.events$` y refresca ante `tasks`/`calendar`.
+ *   `wiping` silencia los SSE intermedios durante el borrado masivo y
+ *   `reconciliando` evita crear dos tareas para el mismo evento.
+ *
+ * ESTADO
+ *   Todo son `signal()` porque la app es zoneless: si actualizas una propiedad
+ *   normal dentro de `subscribe`, la vista no se entera.
+ *
+ * CÓMO AÑADIR UN CAMPO A LA TAREA
+ *   1. `Task` en `study-data.service.ts`.
+ *   2. `ApiTask` en `task.service.ts`.
+ *   3. Mapea en `toTask` y envía en `createTask`/`updateTask`.
+ *   4. Para que llegue al evento, añádelo también en `syncEventForTask`.
+ */
+
 import { Injectable, inject, signal } from '@angular/core';
 import { forkJoin, from, of } from 'rxjs';
 import { catchError, defaultIfEmpty, filter, mergeMap } from 'rxjs/operators';
@@ -19,11 +51,16 @@ export class TaskStoreService {
   private readonly local = inject(StudyDataService);
   private readonly realtime = inject(RealtimeService);
 
+  /** Tareas visibles en toda la app (panel, tareas, calendario). */
   readonly tasks = signal<Task[]>([]);
+  /** Eventos del calendario (incluye los vinculados a tareas). */
   readonly events = signal<CalendarEvent[]>([]);
+  /** True mientras hay una carga en curso (para spinners). */
   readonly loading = signal(false);
+  /** Último error de carga/mutación, para mostrar aviso. */
   readonly error = signal<string | null>(null);
 
+  // Banderas internas (no reactivas): evitan cargas y suscripciones repetidas.
   private loaded = false;
   private listening = false;
 
@@ -39,6 +76,12 @@ export class TaskStoreService {
     this.startListening();
   }
 
+  /**
+   * Se suscribe una sola vez a los eventos SSE relevantes.
+   *
+   * Filtra por `entity`: `tasks` o `calendar`. Ante cualquier evento, `refresh()`
+   * (simple y consistente; no se intenta aplicar deltas).
+   */
   private startListening(): void {
     if (this.listening) return;
     this.listening = true;
@@ -47,11 +90,23 @@ export class TaskStoreService {
       .subscribe(() => this.refresh());
   }
 
+  /**
+   * Recarga tareas y eventos.
+   *
+   * - Invitado: lee localStorage y termina.
+   * - Logueado: `forkJoin` de tareas+eventos. Si CUALQUIERA falla (`catchError`
+   *   -> null), se cae a los datos locales y se muestra `error`; así la UI nunca
+   *   se queda vacía por un fallo de red.
+   * - Tras cargar eventos, reconcilia los que no tienen tarea.
+   * EFECTOS: escribe `tasks`, `events`, `loading`, `error`; puede crear tareas
+   * en el backend (reconciliación).
+   */
   refresh(): void {
     // Durante un borrado masivo los SSE intermedios no deben repoblar el estado.
     if (this.wiping) return;
     this.loading.set(true);
     this.error.set(null);
+
     if (!this.auth.isLoggedIn()) {
       this.tasks.set(this.local.getTasks());
       this.events.set(this.local.getEvents());
@@ -59,11 +114,13 @@ export class TaskStoreService {
       this.loaded = true;
       return;
     }
+
     forkJoin({
       tasks: this.taskService.listTasks().pipe(catchError(() => of(null))),
       events: this.taskService.listEvents().pipe(catchError(() => of(null)))
     }).subscribe(({ tasks, events }) => {
       if (tasks === null || events === null) {
+        // Fallback: datos locales + aviso.
         this.error.set('No se pudieron cargar las tareas. Se muestran los datos locales.');
         this.tasks.set(this.local.getTasks());
         this.events.set(this.local.getEvents());
@@ -107,7 +164,9 @@ export class TaskStoreService {
       }).subscribe({
         next: created => {
           const tarea = this.toTask(created);
+          // Se añade al principio (el backend lista por created_at desc).
           this.tasks.update(list => [tarea, ...list]);
+          // Vincula el evento con la tarea recién creada (sin propagar de vuelta).
           this.updateEvent(evento.id, { taskId: tarea.id }, false);
         },
         error: () => this.reconciliando.delete(evento.id)
@@ -124,6 +183,13 @@ export class TaskStoreService {
   // Tareas
   // ------------------------------------------------------------------
 
+  /**
+   * Crea una tarea.
+   *
+   * - Invitado: local (y relocaliza tareas/eventos).
+   * - Logueado: POST; al volver, actualiza el signal y sincroniza el evento
+   *   (`syncEventForTask`), que lo crea/actualiza/borra según `dueDate`.
+   */
   createTask(task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): void {
     if (!this.auth.isLoggedIn()) {
       this.local.addTask(task);
@@ -149,6 +215,13 @@ export class TaskStoreService {
     });
   }
 
+  /**
+   * Actualiza una tarea (parcial).
+   *
+   * Se envían todos los campos (aunque sean undefined) para que el backend aplique
+   * `$set` solo de los presentes; tras la respuesta se reemplaza en el signal y
+   * se re-sincroniza el evento.
+   */
   updateTask(id: string, changes: Partial<Omit<Task, 'id' | 'createdAt'>>): void {
     if (!this.auth.isLoggedIn()) {
       this.local.updateTask(id, changes);
@@ -176,6 +249,13 @@ export class TaskStoreService {
     });
   }
 
+  /**
+   * Borra una tarea y su evento vinculado.
+   *
+   * - Localiza el evento por `taskId` ANTES de borrar.
+   * - DELETE de la tarea; al ok, quita ambos del estado y borra el evento en el
+   *   backend con `propagarATarea=false` (la tarea ya no existe).
+   */
   removeTask(id: string): void {
     if (!this.auth.isLoggedIn()) {
       this.local.removeTask(id);
@@ -195,6 +275,7 @@ export class TaskStoreService {
     });
   }
 
+  /** Marca/desmarca completada. Mantiene `status` coherente (`done`/`pending`). */
   toggleTask(id: string): void {
     const task = this.tasks().find(item => item.id === id);
     if (!task) return;
@@ -205,6 +286,17 @@ export class TaskStoreService {
    * Elimina todas las tareas de la cuenta. En este modelo cada evento del
    * calendario es tambien una tarea, asi que se borran todos los eventos para
    * que la reconciliacion no vuelva a crearlas.
+   *
+   * Estrategia:
+   *   1. Invitado: borra uno a uno en local.
+   *   2. Logueado: `wiping=true` (ignora SSE) y llama a `DELETE /tasks` (masivo).
+   *      Si el backend no lo soporta, fallback: borra tarea a tarea y evento a
+   *      evento con concurrencia 5 (`mergeMap(..., 5)`) porque el navegador
+   *      limita conexiones por host.
+   *   3. `alTerminar` limpia signals, desactiva `wiping` y hace un `refresh()`
+   *      autoritativo.
+   *
+   * ADVERTENCIA: no se puede deshacer (la UI pide doble confirmación).
    */
   removeAllTasks(): void {
     if (!this.auth.isLoggedIn()) {
@@ -248,6 +340,14 @@ export class TaskStoreService {
   // Eventos
   // ------------------------------------------------------------------
 
+  /**
+   * Crea un evento.
+   *
+   * - Invitado: si el evento NO viene de una tarea (`taskId`), se replica como
+   *   tarea local; luego se refrescan ambas listas.
+   * - Logueado: POST; al volver se añade al signal y, si es un evento suelto,
+   *   se le crea su tarea (`vincularTareaAEvento`).
+   */
   createEvent(event: Omit<CalendarEvent, 'id'>): void {
     if (!this.auth.isLoggedIn()) {
       const nuevo = this.local.addEvent(event);
@@ -276,6 +376,14 @@ export class TaskStoreService {
     });
   }
 
+  /**
+   * Actualiza un evento.
+   *
+   * `propagarATarea` (por defecto true) hace que los cambios se reflejen en la
+   * tarea vinculada (título, fecha, hora, tipo, descripción, documentos). Se
+   * pone a `false` cuando el origen del cambio YA es la tarea (evita bucles).
+   * CÓMO AÑADIR UN CAMPO PROPAGABLE: en `eventoATareaCampos`.
+   */
   updateEvent(id: string, changes: Partial<Omit<CalendarEvent, 'id'>>, propagarATarea = true): void {
     if (!this.auth.isLoggedIn()) {
       this.local.updateEvent(id, changes);
@@ -299,6 +407,7 @@ export class TaskStoreService {
       next: updated => {
         const evento = this.toEvent(updated);
         this.events.update(list => list.map(item => (item.id === id ? evento : item)));
+        // Ya tiene tarea: la reconciliación deja de estar pendiente.
         if (evento.taskId) this.reconciliando.delete(id);
         // Refleja los cambios del evento en la tarea vinculada.
         if (propagarATarea && evento.taskId) {
@@ -306,12 +415,20 @@ export class TaskStoreService {
         }
       },
       error: () => {
+        // Permite reintentar la reconciliación en el próximo refresh.
         this.reconciliando.delete(id);
         this.error.set('No se pudo actualizar el evento.');
       }
     });
   }
 
+  /**
+   * Borra un evento.
+   *
+   * `propagarATarea=true` borra también la tarea vinculada (comportamiento de
+   * "un evento = una tarea"). Se usa false cuando quien borra es `removeTask`
+   * o `syncEventForTask` (la tarea ya no debe tocarse).
+   */
   removeEvent(id: string, propagarATarea = true): void {
     if (!this.auth.isLoggedIn()) {
       const evento = this.local.getEvents().find(item => item.id === id);
@@ -336,7 +453,14 @@ export class TaskStoreService {
   // Sincronizacion tarea <-> evento (misma logica que el almacen local)
   // ------------------------------------------------------------------
 
-  /** Mantiene el evento del calendario alineado con la tarea, sin duplicados. */
+  /**
+   * Mantiene el evento del calendario alineado con la tarea, sin duplicados.
+   *
+   * - Sin `dueDate`: borra el evento existente (la tarea se queda).
+   * - Con `dueDate`: busca el evento por `taskId`; si existe lo actualiza (sin
+   *   propagar de vuelta) y si no, lo crea.
+   * - `color` se deriva del tipo para que el calendario pinte distinto.
+   */
   private syncEventForTask(task: Task): void {
     const existente = this.events().find(event => event.taskId === task.id);
     if (!task.dueDate) {
@@ -365,6 +489,8 @@ export class TaskStoreService {
   /**
    * Un evento creado en el calendario también cuenta como tarea. Crea la tarea
    * vinculada y deja el `taskId` en ambos lados para mantenerlos sincronizados.
+   *
+   * Solo se llama para eventos SIN `taskId` (los sueltos).
    */
   private vincularTareaAEvento(evento: CalendarEvent): void {
     if (!this.auth.isLoggedIn()) {
@@ -404,7 +530,12 @@ export class TaskStoreService {
     };
   }
 
-  /** Campos de tarea que cambian cuando cambia el evento vinculado. */
+  /**
+   * Campos de tarea que cambian cuando cambia el evento vinculado.
+   *
+   * Nota: `title` y `description` usan el cambio si viene y, si no, el valor
+   * actual del evento; la fecha/hora se toman del evento ya actualizado.
+   */
   private eventoATareaCampos(
     evento: CalendarEvent,
     changes: Partial<Omit<CalendarEvent, 'id'>>
@@ -419,6 +550,13 @@ export class TaskStoreService {
     };
   }
 
+  /**
+   * API -> modelo de la UI.
+   *
+   * - Compone `due` (texto "YYYY-MM-DD HH:MM") para mostrar en listas.
+   * - Normaliza defaults (`status`, `type`, `documents`, timestamps).
+   * CÓMO AÑADIR UN CAMPO: añádelo aquí y en la interfaz `Task`.
+   */
   private toTask(task: ApiTask): Task {
     return {
       id: task.id,
@@ -437,6 +575,12 @@ export class TaskStoreService {
     };
   }
 
+  /**
+   * API -> modelo de la UI para eventos.
+   *
+   * `color` se deriva del tipo: trabajo -> homework, tarea -> task, resto ->
+   * event. CÓMO CAMBIAR LOS COLORES: aquí y en `CalendarioComponent`.
+   */
   private toEvent(event: ApiEvent): CalendarEvent {
     return {
       id: event.id,

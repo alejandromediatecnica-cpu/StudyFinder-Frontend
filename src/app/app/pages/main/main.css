@@ -1,3 +1,10 @@
+/*
+  Estilos del dashboard.
+  - .stats-grid/.stat-card: cuatro contadores (grid responsive por media queries).
+  - .main-grid y .glass-panel: tarjeta de tarea urgente + listas de próximas y
+    completadas.
+  - .badge / clases de color por tipo de tarea.
+*/
 :host { display:block; }
 .dashboard-page { max-width: 1440px; margin: 0 auto; }
 .welcome-row { display:flex; justify-content:space-between; align-items:flex-end; gap:25px; margin-bottom:26px; }
